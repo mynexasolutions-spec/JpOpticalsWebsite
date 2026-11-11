@@ -32,6 +32,39 @@ const text = (value = "") =>
 const readPage = (file) =>
   fs.readFileSync(path.join("public/mirror", file), "utf8");
 
+const categories = [
+  {
+    id: "sunglasses",
+    name: "Sunglasses",
+    slug: "sunglasses",
+    href: "/shop?type_frame=Sunglasses",
+    subcategories: [
+      {
+        id: "transitions",
+        name: "Transitions (Photochromic)",
+        slug: "transitions",
+        href: "/shop?type_frame=Sunglasses&lens=Transitions",
+      },
+    ],
+  },
+  {
+    id: "optical",
+    name: "Optical",
+    slug: "optical",
+    href: "/shop?type_frame=Optical",
+    subcategories: [
+      {
+        id: "transitions",
+        name: "Transitions (Photochromic)",
+        slug: "transitions",
+        href: "/shop?type_frame=Optical&lens=Transitions",
+      },
+    ],
+  },
+];
+const sharedCategoryIds = categories.map(({ id }) => id);
+const sharedSubcategoryIds = ["transitions"];
+
 const products = [];
 const collections = [];
 
@@ -57,7 +90,7 @@ for (const entry of manifest) {
     const type = /sunglasses/i.test(title)
       ? "Sunglasses"
       : /eyeglasses|optical/i.test(title)
-        ? "Eyeglasses"
+        ? "Optical"
         : "Eyewear";
 
     products.push({
@@ -67,7 +100,9 @@ for (const entry of manifest) {
       price,
       image,
       url: entry.url,
-      search: `${title} ${h1} ${brand} ${type}`.toLowerCase(),
+      categoryIds: sharedCategoryIds,
+      subcategoryIds: sharedSubcategoryIds,
+      search: `${title} ${h1} ${brand} ${type} transitions photochromic`.toLowerCase(),
     });
   } else if (entry.pathname.startsWith("/collection/")) {
     const name = h1 || text(ogTitle.replace(/\s*\|\s*JP\s*$/i, ""));
@@ -85,6 +120,7 @@ for (const entry of manifest) {
 
 const data = {
   generatedAt: new Date().toISOString(),
+  categories,
   products,
   collections,
 };

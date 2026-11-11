@@ -31,6 +31,23 @@
       .normalize("NFD")
       .replace(/[\u0300-\u036f]/g, "");
 
+  const categoryText = (value) =>
+    String(value ?? "").trim().replace(/^Eyeglasses$/i, "Optical");
+
+  const transitionsLabel = "Transitions (Photochromic)";
+
+  const transitionsHref = (href) => {
+    const [pathname, query = ""] = String(href || "/shop").split("?");
+    const params = new URLSearchParams(query);
+    params.set("lens", "Transitions");
+    return `${pathname}?${params.toString()}`;
+  };
+
+  const productHasTransitions = (product) =>
+    Array.isArray(product?.subcategoryIds)
+      ? product.subcategoryIds.includes("transitions")
+      : product?.transitions === true;
+
   const readAccounts = () => {
     try {
       const accounts = JSON.parse(localStorage.getItem(ACCOUNT_KEY) || "[]");
@@ -152,7 +169,7 @@
     <div class="jp-modal jp-search-modal" role="dialog" aria-modal="true" aria-labelledby="jp-search-title">
       <form class="jp-search-head" data-jp-search-form>
         ${ICONS.search}
-        <input class="jp-search-input" id="jp-search-title" type="search" placeholder="Search sunglasses, eyeglasses, brands..." autocomplete="off" aria-label="Search products and brands">
+        <input class="jp-search-input" id="jp-search-title" type="search" placeholder="Search sunglasses, optical, brands..." autocomplete="off" aria-label="Search products and brands">
         <button class="jp-close" type="button" data-jp-close aria-label="Close search">${ICONS.close}</button>
       </form>
       <div class="jp-search-body">
@@ -165,10 +182,17 @@
 
   const menuArticles = Array.from(
     document.querySelectorAll("header nav a"),
-  ).map(
-    (link) =>
-      `<a class="jp-menu-link" href="${escapeHtml(link.getAttribute("href"))}">${escapeHtml(link.textContent.trim())}</a>`,
-  );
+  ).flatMap((link) => {
+    const href = link.getAttribute("href") || "/";
+    const label = categoryText(link.textContent);
+    if (href === "/shop" || href.startsWith("/lenses/")) return [];
+    const item = `<a class="jp-menu-link" href="${escapeHtml(href)}">${escapeHtml(label)}</a>`;
+    if (!/^(Sunglasses|Optical)$/i.test(label)) return [item];
+    return [
+      item,
+      `<a class="jp-menu-link jp-menu-sub" href="${escapeHtml(transitionsHref(href))}">${transitionsLabel}</a>`,
+    ];
+  });
 
   const menuOverlay = document.createElement("div");
   menuOverlay.className = "jp-overlay jp-menu-overlay";
@@ -335,7 +359,7 @@
 
   const popularHtml = () => `
     <div class="jp-chips">
-      ${["Sunglasses", "Eyeglasses", "Cartier", "Maybach"]
+      ${["Sunglasses", "Optical", transitionsLabel, "Cartier"]
         .map(
           (label) =>
             `<button class="jp-chip" type="button" data-jp-chip="${escapeHtml(label)}">${escapeHtml(label)}</button>`,
@@ -641,7 +665,7 @@
   };
 
   const updateCartBadge = () => {
-    const count = readCart().reduce((total, item) => total + item.quantity, 0);
+    const count = readCart().reduce((total, item) => total + Number(item.quantity || 0), 0);
     document.querySelectorAll('a[aria-label="Cart"]').forEach((link) => {
       let badge = link.querySelector(".jp-cart-count");
       if (count === 0) {
@@ -658,19 +682,35 @@
   };
 
   const setupProductActions = () => {
-    document.querySelectorAll('button[aria-label^="Add "][aria-label$=" to bag"]').forEach((button) => {
+    const productButtons = Array.from(document.querySelectorAll('button[aria-label^="Add "][aria-label$=" to bag"]'));
+    if (window.location.pathname.startsWith("/product/")) {
+      productButtons.push(...Array.from(document.querySelectorAll("button")).filter((button) => button.textContent.trim().toLowerCase() === "add to cart"));
+    }
+    productButtons.forEach((button) => {
       if (button.dataset.jpBound) return;
       button.dataset.jpBound = "true";
       button.type = "button";
       button.addEventListener("click", (event) => {
         event.preventDefault();
         event.stopPropagation();
-        const name = button.getAttribute("aria-label")?.replace(/^Add | to bag$/g, "") || "Item";
+        const isDetailButton = button.textContent.trim().toLowerCase() === "add to cart";
+        const name = isDetailButton
+          ? document.querySelector("main h1")?.textContent.trim() || "Item"
+          : button.getAttribute("aria-label")?.replace(/^Add | to bag$/g, "") || "Item";
         const link = button.closest("a[href]");
+        const url = link?.getAttribute("href") || `${window.location.pathname}${window.location.search}` || "/shop";
+        const image = link?.querySelector("img")?.getAttribute("src") || document.querySelector("main img[alt]")?.getAttribute("src") || "";
+        const price = link?.querySelector("p:last-child span")?.textContent.trim() || document.querySelector('main span[class*="text-[19px]"]')?.textContent.trim() || "";
         const cart = readCart();
-        const existing = cart.find((item) => item.name === name && item.url === link?.getAttribute("href"));
+        const existing = cart.find((item) => item.name === name && item.url === url);
         if (existing) existing.quantity += 1;
-        else cart.push({ name, url: link?.getAttribute("href") || "/shop", quantity: 1 });
+        else cart.push({
+          name,
+          url,
+          quantity: 1,
+          image,
+          price,
+        });
         writeCart(cart);
         updateCartBadge();
         showToast(`${name} added to your bag`);
@@ -679,12 +719,115 @@
     updateCartBadge();
   };
 
+  const parseMoney = (value) => {
+    const amount = Number(String(value || "").replace(/[^0-9.-]/g, ""));
+    return Number.isFinite(amount) ? amount : 0;
+  };
+
+  const money = (value) =>
+    `$${value.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+  const setupCartPage = () => {
+    if (window.location.pathname !== "/cart") return;
+    const main = document.querySelector("main");
+    const hero = document.querySelector("body > section") || document.querySelector("section");
+    if (!main) return;
+    main.classList.add("jp-cart-page");
+    hero?.classList.add("jp-cart-hero");
+    const heading = hero?.querySelector("h1");
+    if (heading) heading.textContent = "Shopping bag";
+    if (main.dataset.jpCartBound) return;
+    main.dataset.jpCartBound = "true";
+
+    const render = (catalog = []) => {
+      const cart = readCart().map((item) => {
+        const product = catalog.find((candidate) => candidate.url === item.url || new URL(candidate.url, window.location.origin).pathname === new URL(item.url, window.location.origin).pathname);
+        return {
+          ...item,
+          name: item.name || product?.name || "Product",
+          image: item.image || product?.image || "/mirror-assets/placeholder.svg",
+          price: item.price || product?.price || "$0.00",
+          quantity: Math.max(1, Number(item.quantity) || 1),
+        };
+      });
+      writeCart(cart);
+      updateCartBadge();
+      const count = cart.reduce((total, item) => total + item.quantity, 0);
+      const subtotal = cart.reduce((total, item) => total + parseMoney(item.price) * item.quantity, 0);
+      const countLabel = `${count} ${count === 1 ? "item" : "items"}`;
+      let heroCount = hero?.querySelector("[data-jp-cart-count]");
+      if (!heroCount && heading) {
+        heroCount = document.createElement("p");
+        heroCount.className = "jp-cart-hero-count";
+        heroCount.dataset.jpCartCount = "true";
+        hero.appendChild(heroCount);
+      }
+      if (heroCount) heroCount.textContent = countLabel;
+
+      if (!cart.length) {
+        main.innerHTML = `<div class="jp-cart-empty"><p>Your bag is empty</p><a href="/shop">Continue shopping</a></div>`;
+        return;
+      }
+
+      main.innerHTML = `
+        <div class="jp-cart-layout">
+          <section class="jp-cart-items" aria-label="Shopping bag items">
+            ${cart.map((item, index) => `<article class="jp-cart-item" data-jp-cart-index="${index}">
+              <a class="jp-cart-image" href="${escapeHtml(item.url)}"><img src="${escapeHtml(item.image)}" alt="${escapeHtml(item.name)}"></a>
+              <div class="jp-cart-info">
+                <a class="jp-cart-name" href="${escapeHtml(item.url)}">${escapeHtml(item.name)}</a>
+                <p class="jp-cart-meta">COLOR / STANDARD</p>
+                <div class="jp-cart-controls">
+                  <div class="jp-cart-quantity" aria-label="Quantity for ${escapeHtml(item.name)}">
+                    <button type="button" data-jp-cart-decrease aria-label="Decrease quantity">−</button>
+                    <span>${item.quantity}</span>
+                    <button type="button" data-jp-cart-increase aria-label="Increase quantity">+</button>
+                  </div>
+                  <button class="jp-cart-remove" type="button" data-jp-cart-remove>Remove</button>
+                </div>
+              </div>
+              <p class="jp-cart-price">${escapeHtml(item.price)}</p>
+            </article>`).join("")}
+            <div class="jp-cart-actions"><button type="button" data-jp-cart-clear>Clear bag</button><a href="/lenses/19">Add prescription</a><a href="/shop">Continue shopping</a></div>
+          </section>
+          <aside class="jp-cart-summary" aria-label="Order summary">
+            <h2>Order summary</h2>
+            <div class="jp-cart-summary-row"><span>Subtotal</span><strong>${money(subtotal)}</strong></div>
+            <div class="jp-cart-summary-row jp-cart-shipping"><span>Shipping<small>Standard shipping (3-5 business days)</small></span><strong>$0.00</strong></div>
+            <div class="jp-cart-total"><span>Total</span><strong>${money(subtotal)}</strong></div>
+            <button class="jp-cart-checkout" type="button" data-jp-cart-checkout>Proceed to checkout</button>
+            <p class="jp-cart-tax">Tax is calculated after payment</p>
+          </aside>
+        </div>`;
+    };
+
+    main.addEventListener("click", (event) => {
+      const target = event.target.closest("[data-jp-cart-increase], [data-jp-cart-decrease], [data-jp-cart-remove], [data-jp-cart-clear], [data-jp-cart-checkout]");
+      if (!target) return;
+      event.preventDefault();
+      const index = Number(target.closest("[data-jp-cart-index]")?.dataset.jpCartIndex);
+      const cart = readCart();
+      if (target.hasAttribute("data-jp-cart-increase") && cart[index]) cart[index].quantity = Number(cart[index].quantity || 0) + 1;
+      if (target.hasAttribute("data-jp-cart-decrease") && cart[index]) cart[index].quantity = Number(cart[index].quantity || 0) - 1;
+      if (target.hasAttribute("data-jp-cart-remove")) cart.splice(index, 1);
+      if (target.hasAttribute("data-jp-cart-clear")) cart.length = 0;
+      if (target.hasAttribute("data-jp-cart-checkout")) {
+        showToast("Checkout is not connected in this preview.");
+        return;
+      }
+      writeCart(cart.filter((item) => Number(item.quantity || 0) > 0));
+      loadIndex().then((data) => render(data.products || []));
+    });
+
+    loadIndex().then((data) => render(data.products || [])).catch(() => render());
+  };
+
   const setupCarousels = () => {
     document.querySelectorAll('[role="region"][aria-roledescription="carousel"]').forEach((region) => {
       if (region.dataset.jpBound) return;
       const viewport = region.querySelector(":scope > .overflow-hidden");
       const track = viewport?.firstElementChild;
-      const slides = track ? Array.from(track.children) : [];
+      let slides = track ? Array.from(track.children) : [];
       if (!viewport || !track || !slides.length) return;
       region.dataset.jpBound = "true";
       region.tabIndex = 0;
@@ -699,6 +842,7 @@
       let suppressClick = false;
 
       const measure = () => {
+        slides = Array.from(track.children);
         slideWidth = slides[0].getBoundingClientRect().width || viewport.clientWidth;
         maxOffset = Math.max(0, track.scrollWidth - viewport.clientWidth);
         offset = Math.min(offset, maxOffset);
@@ -773,22 +917,457 @@
         if (suppressClick) { event.preventDefault(); event.stopPropagation(); }
       }, true);
       window.addEventListener("resize", () => { measure(); apply(false); }, { passive: true });
+      region.addEventListener("jp-carousel-reset", () => { offset = 0; measure(); apply(false); });
       measure();
       apply(false);
     });
   };
 
+  const setupBestSellerTabs = () => {
+    const section = Array.from(document.querySelectorAll("section")).find(
+      (candidate) => candidate.querySelector("p")?.textContent.trim().toLowerCase() === "our best sellers",
+    );
+    const buttons = section ? Array.from(section.querySelectorAll("button")).filter(
+      (button) => ["sunglasses", "optical"].includes(button.textContent.trim().toLowerCase()),
+    ) : [];
+    const region = section?.querySelector('[role="region"][aria-roledescription="carousel"]');
+    const track = region?.querySelector(":scope > .overflow-hidden > .flex");
+    const allProducts = section?.querySelector('a[href*="type_frame=Sunglasses"]');
+    const sunglassesButton = buttons.find((button) => button.textContent.trim().toLowerCase() === "sunglasses");
+    const opticalButton = buttons.find((button) => button.textContent.trim().toLowerCase() === "optical");
+    if (!section || buttons.length !== 2 || !region || !track || !allProducts || !sunglassesButton || !opticalButton) return;
+
+    const sunglassesSlides = Array.from(track.children);
+
+    const setActive = (activeButton) => {
+      buttons.forEach((button) => {
+        const active = button === activeButton;
+        button.classList.toggle("text-black", active);
+        button.classList.toggle("text-neutral-400", !active);
+        button.setAttribute("aria-pressed", String(active));
+        button.querySelector("span")?.classList.toggle("scale-x-100", active);
+        button.querySelector("span")?.classList.toggle("scale-x-0", !active);
+      });
+    };
+
+    const showCategory = (categoryButton, slides, label, href) => {
+      track.replaceChildren(...slides);
+      allProducts.href = href;
+      allProducts.textContent = label;
+      region.dispatchEvent(new Event("jp-carousel-reset"));
+      setupProductActions();
+      setActive(categoryButton);
+    };
+
+    buttons.forEach((button) => {
+      button.type = "button";
+      button.dataset.jpBound = "true";
+      button.setAttribute("aria-pressed", String(button === buttons[0]));
+    });
+    sunglassesButton.addEventListener("click", () => {
+      showCategory(
+        sunglassesButton,
+        sunglassesSlides,
+        "All sunglasses",
+        "/shop?type_frame=Sunglasses&page=1",
+      );
+    });
+    opticalButton.addEventListener("click", () => {
+      showCategory(
+        opticalButton,
+        sunglassesSlides,
+        "All optical",
+        "/shop?type_frame=Optical&page=1",
+      );
+    });
+  };
+
+  const setupEditorialCarousels = () => {
+    const looks = [
+      {
+        brand: "Cartier",
+        name: "Cartier CT0543S",
+        price: "$2,245.00",
+        image: "/media/v0/b/site-bucket/o/banner_photos/home_cartier_ct0543s_003_w1200.webp",
+        productImage: "/mirror-assets/e6d9444482466b57.png",
+        href: "/product/4454?variant_id=20452",
+        alt: "Cartier CT0543S",
+        aspect: "1200 / 1600",
+      },
+      {
+        brand: "Dita",
+        name: "Dita Hyperlux-3000",
+        price: "$1,205.00",
+        image: "/mirror-assets/140a5b0f54b49566.webp",
+        productImage: "/mirror-assets/15ab2d66f0c638c1.jpg",
+        href: "/product/6009?variant_id=24432",
+        alt: "Dita Hyperlux-3000",
+        aspect: "1200 / 1501",
+      },
+    ];
+    const reels = [
+      {
+        brand: "Cartier",
+        name: "Cartier CT0092O",
+        price: "$1,345.00",
+        video: "/mirror-assets/419a3f9ee6acc6c3.mp4",
+        cover: "/mirror-assets/8dd76334e801449c.webp",
+        productImage: "/mirror-assets/8cdb21822a262de3.png",
+        href: "/product/171?variant_id=6035",
+        instagram: "https://www.instagram.com/reel/De-n6B6RAGo/",
+        alt: "Cartier CT0092O in gold with custom tan lenses",
+      },
+      {
+        brand: "Cartier",
+        name: "Cartier CT0344O",
+        price: "$1,345.00",
+        video: "/mirror-assets/d806be0e530cddc1.mp4",
+        cover: "/mirror-assets/b06d709ea1e0c591.webp",
+        productImage: "/mirror-assets/76c6d021109e9fc3.png",
+        href: "/product/195?variant_id=4236",
+        instagram: "https://www.instagram.com/reel/DfCbXWvRp59/",
+        alt: "Cartier CT0344O with warm tint and faceted edges",
+      },
+    ];
+    const volumeOff =
+      '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4" aria-hidden="true"><path d="M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z"></path><line x1="22" x2="16" y1="9" y2="15"></line><line x1="16" x2="22" y1="9" y2="15"></line></svg>';
+    const volumeOn =
+      '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4" aria-hidden="true"><path d="M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z"></path><path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path><path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path></svg>';
+
+    const findSection = (heading) =>
+      Array.from(document.querySelectorAll("section")).find(
+        (candidate) =>
+          candidate.querySelector("h2")?.textContent.trim().toLowerCase() === heading.toLowerCase(),
+      );
+
+    const setActiveDot = (dots, index) => {
+      dots.forEach((dot, dotIndex) => {
+        const active = dotIndex === index;
+        dot.classList.toggle("w-6", active);
+        dot.classList.toggle("bg-black", active);
+        dot.classList.toggle("w-1.5", !active);
+        dot.classList.toggle("bg-black/25", !active);
+        dot.setAttribute("aria-current", String(active));
+      });
+    };
+
+    const bindControls = (section, prev, next, dots, render, getIndex) => {
+      prev.type = "button";
+      next.type = "button";
+      prev.addEventListener("click", () => render(getIndex() - 1));
+      next.addEventListener("click", () => render(getIndex() + 1));
+      dots.forEach((dot, dotIndex) => {
+        dot.type = "button";
+        dot.addEventListener("click", () => render(dotIndex));
+      });
+      setActiveDot(dots, getIndex());
+    };
+
+    const setupLooks = () => {
+      const section = findSection("Our looks");
+      if (!section || section.dataset.jpLooksBound) return;
+      const model = section.querySelector("img.absolute.inset-0");
+      const media = model?.parentElement;
+      const stage = media?.parentElement;
+      const panel = stage?.children[1]?.querySelector(":scope > div");
+      const paragraphs = panel ? Array.from(panel.querySelectorAll(":scope > p")) : [];
+      const brand = paragraphs[0];
+      const name = paragraphs[1];
+      const price = paragraphs[2]?.querySelector("span") || paragraphs[2];
+      const productImage = panel?.querySelector("img");
+      const productLink = panel?.querySelector('a[href^="/product/"]');
+      const prev = section.querySelector('button[aria-label="Previous look"]');
+      const next = section.querySelector('button[aria-label="Next look"]');
+      const dots = Array.from(section.querySelectorAll('button[aria-label^="Look "]'));
+      if (
+        !model ||
+        !media ||
+        !panel ||
+        !brand ||
+        !name ||
+        !price ||
+        !productImage ||
+        !productLink ||
+        !prev ||
+        !next ||
+        dots.length !== looks.length
+      ) {
+        return;
+      }
+      section.dataset.jpLooksBound = "true";
+      let index = 0;
+      const render = (nextIndex) => {
+        index = (nextIndex + looks.length) % looks.length;
+        const look = looks[index];
+        model.src = look.image;
+        model.alt = look.alt;
+        media.style.aspectRatio = look.aspect;
+        brand.textContent = look.brand;
+        name.textContent = look.name;
+        price.textContent = look.price;
+        productImage.src = look.productImage;
+        productImage.alt = look.name;
+        productLink.href = look.href;
+        setActiveDot(dots, index);
+      };
+      bindControls(section, prev, next, dots, render, () => index);
+    };
+
+    const setupReels = () => {
+      const section = findSection("As seen on Instagram");
+      if (!section || section.dataset.jpReelsBound) return;
+      const video = section.querySelector("video");
+      const media = video?.parentElement;
+      const stage = media?.parentElement;
+      const panel = stage?.children[1]?.querySelector(":scope > div");
+      const paragraphs = panel ? Array.from(panel.querySelectorAll(":scope > p")) : [];
+      const brand = paragraphs[0];
+      const name = paragraphs[1];
+      const price = paragraphs[2]?.querySelector("span") || paragraphs[2];
+      const productImage = panel?.querySelector("img");
+      const productLink = panel?.querySelector('a[href^="/product/"]');
+      const instagramLink = Array.from(panel?.querySelectorAll("a") || []).find((link) =>
+        /instagram/i.test(link.textContent),
+      );
+      const muteButton = section.querySelector('button[aria-label="Unmute"], button[aria-label="Mute"]');
+      const prev = section.querySelector('button[aria-label="Previous look"]');
+      const next = section.querySelector('button[aria-label="Next look"]');
+      const dots = Array.from(section.querySelectorAll('button[aria-label^="Reel "]'));
+      if (
+        !video ||
+        !media ||
+        !panel ||
+        !brand ||
+        !name ||
+        !price ||
+        !productImage ||
+        !productLink ||
+        !instagramLink ||
+        !prev ||
+        !next ||
+        dots.length !== reels.length
+      ) {
+        return;
+      }
+      section.dataset.jpReelsBound = "true";
+      let index = 0;
+      let inView = false;
+      video.muted = true;
+      const syncMute = () => {
+        if (!muteButton) return;
+        muteButton.setAttribute("aria-label", video.muted ? "Unmute" : "Mute");
+        muteButton.innerHTML = video.muted ? volumeOff : volumeOn;
+      };
+      const render = (nextIndex) => {
+        index = (nextIndex + reels.length) % reels.length;
+        const reel = reels[index];
+        video.src = reel.video;
+        video.poster = reel.cover;
+        video.setAttribute("aria-label", reel.alt);
+        video.load();
+        if (inView) video.play().catch(() => {});
+        brand.textContent = reel.brand;
+        name.textContent = reel.name;
+        price.textContent = reel.price;
+        productImage.src = reel.productImage;
+        productImage.alt = reel.name;
+        productLink.href = reel.href;
+        instagramLink.href = reel.instagram;
+        syncMute();
+        setActiveDot(dots, index);
+      };
+      if (muteButton) {
+        muteButton.type = "button";
+        muteButton.addEventListener("click", () => {
+          video.muted = !video.muted;
+          if (!video.muted) video.play().catch(() => {});
+          syncMute();
+        });
+      }
+      if ("IntersectionObserver" in window) {
+        new IntersectionObserver(
+          (entries) => {
+            inView = entries[0].isIntersecting;
+            if (inView) video.play().catch(() => {});
+            else video.pause();
+          },
+          { threshold: 0.3 },
+        ).observe(section);
+      } else {
+        inView = true;
+      }
+      bindControls(section, prev, next, dots, render, () => index);
+      render(0);
+    };
+
+    setupLooks();
+    setupReels();
+  };
+
   const setupHeroControls = () => {
-    const routes = { Cartier: "/collection/14", Dita: "/collection/4", Maybach: "/collection/10" };
-    document.querySelectorAll('button[aria-label^="Go to "]').forEach((button) => {
-      if (button.dataset.jpBound) return;
+    const buttons = Array.from(document.querySelectorAll('button[aria-label^="Go to "]'));
+    const hero = buttons[0]?.closest("section");
+    const title = hero?.querySelector("h1");
+    const content = title?.parentElement;
+    const subtitle = content?.querySelector("p");
+    const cta = content?.querySelector("a");
+    const initialMedia = hero?.querySelector("video, picture");
+    const mediaLayer = initialMedia?.parentElement;
+    if (!hero || !title || !content || !subtitle || !cta || !mediaLayer || buttons.length < 3) return;
+    if (hero.dataset.jpHeroBound) return;
+    hero.dataset.jpHeroBound = "true";
+
+    const localCartierDesktop = "/media/v0/b/site-bucket/o/banner_photos/home_cartier_precious_sunglasses_desktop.webp";
+    const localCartierMobile = "/media/v0/b/site-bucket/o/banner_photos/home_cartier_precious_sunglasses_mobile.webp";
+    const localDitaFallback = "/media/v0/b/site-bucket/o/banner_photos/brandshowcase_akoni.webp";
+    const slides = [
+      {
+        name: "Cartier",
+        subtitle: "Precious sunglasses",
+        cta: "Shop Cartier",
+        href: "/collection/14",
+        desktop: localCartierDesktop,
+        mobile: localCartierMobile,
+        duration: 8000,
+      },
+      {
+        name: "Dita",
+        subtitle: "Explore best-sellers",
+        cta: "Shop Dita",
+        href: "/collection/4",
+        desktop: localDitaFallback,
+        mobile: localDitaFallback,
+        duration: 8000,
+      },
+      {
+        name: "Maybach",
+        subtitle: "Crafted without compromise",
+        cta: "Shop Maybach",
+        href: "/collection/10",
+        video: "/mirror-assets/5f6caed4c6b06e08.mp4",
+        duration: 20000,
+      },
+    ];
+    const progress = buttons.map((button) => button.querySelector("span"));
+    const scrim = Array.from(mediaLayer.children).find((child) => child.classList.contains("bg-gradient-to-b"));
+    let currentIndex = Math.max(0, slides.findIndex((slide) => slide.name === title.textContent?.trim()));
+    let autoplayTimer;
+    let mediaSwapTimer;
+    let interactionPaused = false;
+    let transitionId = 0;
+
+    const clearAutoplay = () => {
+      if (autoplayTimer) window.clearTimeout(autoplayTimer);
+      autoplayTimer = undefined;
+    };
+
+    const scheduleAutoplay = () => {
+      clearAutoplay();
+      if (interactionPaused || document.hidden || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+      autoplayTimer = window.setTimeout(() => {
+        render((currentIndex + 1) % slides.length);
+      }, slides[currentIndex].duration);
+    };
+
+    const createMedia = (slide) => {
+      if (slide.video) {
+        const video = document.createElement("video");
+        video.src = slide.video;
+        video.autoplay = true;
+        video.muted = true;
+        video.loop = true;
+        video.playsInline = true;
+        video.preload = "auto";
+        video.className = "h-full w-full object-cover";
+        video.setAttribute("aria-label", `${slide.name} campaign video`);
+        video.play().catch(() => {});
+        return video;
+      }
+
+      const picture = document.createElement("picture");
+      picture.className = "absolute inset-0 h-full w-full";
+      const source = document.createElement("source");
+      source.media = "(max-width: 767px)";
+      source.srcset = slide.mobile;
+      const image = document.createElement("img");
+      image.src = slide.desktop;
+      image.alt = `${slide.name} eyewear campaign`;
+      image.loading = "eager";
+      image.decoding = "async";
+      image.className = "h-full w-full object-cover";
+      image.addEventListener("error", () => {
+        if (image.dataset.jpFallback) return;
+        image.dataset.jpFallback = "true";
+        source.srcset = localCartierMobile;
+        image.src = slide.name === "Cartier" ? localCartierDesktop : localDitaFallback;
+      });
+      picture.append(source, image);
+      return picture;
+    };
+
+    const updateProgress = (index) => {
+      progress.forEach((bar, barIndex) => {
+        if (!bar) return;
+        bar.style.transition = "none";
+        bar.style.width = "0%";
+        buttons[barIndex].setAttribute("aria-current", barIndex === index ? "true" : "false");
+      });
+      window.requestAnimationFrame(() => {
+        const bar = progress[index];
+        if (!bar) return;
+        bar.style.transition = `width ${slides[index].duration}ms linear`;
+        bar.style.width = "100%";
+      });
+    };
+
+    function render(index) {
+      const slide = slides[index];
+      currentIndex = index;
+      title.textContent = slide.name;
+      subtitle.textContent = slide.subtitle;
+      cta.textContent = slide.cta;
+      cta.href = slide.href;
+      updateProgress(index);
+
+      const nextTransitionId = ++transitionId;
+      if (mediaSwapTimer) window.clearTimeout(mediaSwapTimer);
+      mediaLayer.style.transition = "opacity 650ms ease";
+      mediaLayer.style.opacity = "0";
+      mediaSwapTimer = window.setTimeout(() => {
+        if (nextTransitionId !== transitionId) return;
+        const nextMedia = createMedia(slide);
+        if (scrim) {
+          mediaLayer.replaceChildren(nextMedia, scrim.cloneNode(true));
+        } else {
+          mediaLayer.replaceChildren(nextMedia);
+        }
+        window.requestAnimationFrame(() => { mediaLayer.style.opacity = "1"; });
+      }, 300);
+      scheduleAutoplay();
+    }
+
+    buttons.forEach((button, index) => {
       button.dataset.jpBound = "true";
       button.type = "button";
       button.addEventListener("click", () => {
-        const brand = button.getAttribute("aria-label")?.replace("Go to ", "");
-        if (brand && routes[brand]) window.location.href = routes[brand];
+        interactionPaused = false;
+        render(index);
       });
     });
+    hero.addEventListener("mouseenter", () => { interactionPaused = true; clearAutoplay(); });
+    hero.addEventListener("mouseleave", () => { interactionPaused = false; scheduleAutoplay(); });
+    hero.addEventListener("focusin", () => { interactionPaused = true; clearAutoplay(); });
+    hero.addEventListener("focusout", () => {
+      window.setTimeout(() => {
+        if (!hero.contains(document.activeElement)) {
+          interactionPaused = false;
+          scheduleAutoplay();
+        }
+      }, 0);
+    });
+    document.addEventListener("visibilitychange", scheduleAutoplay);
+    updateProgress(currentIndex);
+    scheduleAutoplay();
   };
 
   const setupProductGallery = () => {
@@ -833,6 +1412,134 @@
     });
   };
 
+  const setupCategoryLabels = () => {
+    document.querySelectorAll('a[href*="type_frame=Optical"]').forEach((link) => {
+      link.childNodes.forEach((node) => {
+        if (node.nodeType === Node.TEXT_NODE && node.textContent.trim() === "Eyeglasses") {
+          node.textContent = node.textContent.replace("Eyeglasses", "Optical");
+        }
+      });
+    });
+    document.querySelectorAll("h1, h2").forEach((heading) => {
+      if (heading.textContent.trim() === "Eyeglasses") heading.textContent = "Optical";
+    });
+    const searchInput = document.querySelector("#jp-search-title");
+    if (searchInput) {
+      searchInput.placeholder = searchInput.placeholder.replace(/eyeglasses/i, "optical");
+    }
+    if (/eyeglasses/i.test(document.title)) {
+      document.title = document.title.replace(/eyeglasses/gi, "Optical");
+    }
+  };
+
+  const setupCategoryMenus = () => {
+    document
+      .querySelectorAll('header nav a[href="/shop"], header nav a[href^="/lenses/"]')
+      .forEach((link) => link.remove());
+    document.querySelectorAll('header nav a[href*="type_frame="]').forEach((link) => {
+      if (link.dataset.jpCategoryMenu) return;
+      const label = categoryText(link.textContent);
+      if (!/^(Sunglasses|Optical)$/i.test(label)) return;
+      const category = /^Sunglasses$/i.test(label) ? "Sunglasses" : "Optical";
+      const href = link.getAttribute("href") || `/shop?type_frame=${category}`;
+      const wrapper = document.createElement("div");
+      wrapper.className = "jp-nav-item";
+      link.parentElement.insertBefore(wrapper, link);
+      wrapper.appendChild(link);
+      const menu = document.createElement("div");
+      menu.className = "jp-nav-menu";
+      menu.innerHTML = `<a href="${escapeHtml(href)}">All ${category.toLowerCase()}</a><a href="${escapeHtml(transitionsHref(href))}">${transitionsLabel}</a>`;
+      wrapper.appendChild(menu);
+      link.dataset.jpCategoryMenu = "true";
+      link.setAttribute("aria-haspopup", "true");
+      link.setAttribute("aria-expanded", "false");
+      const sync = () => {
+        link.setAttribute("aria-expanded", wrapper.matches(":hover, :focus-within") ? "true" : "false");
+      };
+      wrapper.addEventListener("mouseenter", sync);
+      wrapper.addEventListener("mouseleave", sync);
+      wrapper.addEventListener("focusin", sync);
+      wrapper.addEventListener("focusout", (event) => {
+        if (!wrapper.contains(event.relatedTarget)) sync();
+      });
+    });
+  };
+
+  const shopCategoryState = () => {
+    const params = new URLSearchParams(window.location.search);
+    const type = (params.get("type_frame") || "").toLowerCase();
+    const lens = (params.get("lens") || "").toLowerCase();
+    return {
+      type: type === "sunglasses" ? "Sunglasses" : type === "optical" ? "Optical" : "",
+      transitions: lens === "transitions",
+    };
+  };
+
+  const renderShopSubnav = (activeType, transitions) => {
+    const main = document.querySelector("main");
+    const row = main?.previousElementSibling;
+    if (!main || !row) return;
+    const makeGroup = (category) => {
+      const href = `/shop?type_frame=${category}`;
+      const allActive = activeType === category && !transitions;
+      const transitionsActive = activeType === category && transitions;
+      return `<div class="jp-shop-subnav-group"><span class="jp-shop-subnav-label">${category}</span><a class="jp-shop-subnav-link${allActive ? " is-active" : ""}" href="${href}"${allActive ? ' aria-current="page"' : ""}>All</a><a class="jp-shop-subnav-link${transitionsActive ? " is-active" : ""}" href="${transitionsHref(href)}"${transitionsActive ? ' aria-current="page"' : ""}>${transitionsLabel}</a></div>`;
+    };
+    const groups = activeType
+      ? makeGroup(activeType)
+      : `${makeGroup("Sunglasses")}<span class="jp-shop-subnav-sep" aria-hidden="true"></span>${makeGroup("Optical")}`;
+    let subnavRow = main.parentElement?.querySelector(":scope > .jp-shop-subnav-row");
+    if (!subnavRow) {
+      subnavRow = document.createElement("div");
+      subnavRow.className = "jp-shop-subnav-row border-b border-neutral-200 bg-white px-5 py-3 font-nav";
+      row.before(subnavRow);
+    }
+    subnavRow.innerHTML = `<div class="jp-shop-subnav">${groups}${transitions ? '<span class="jp-transitions-note">Photochromic lenses</span>' : ""}</div>`;
+  };
+
+  const productCardMarkup = (product) => {
+    const name = escapeHtml(product.name);
+    const image = escapeHtml(product.image || "/mirror-assets/placeholder.svg");
+    const price = escapeHtml(product.price || "");
+    return `<a class="group block bg-[#f0efed] font-nav" href="${escapeHtml(product.url)}">
+      <div class="relative aspect-square overflow-hidden">
+        <img src="${image}" sizes="(min-width: 640px) 33vw, 50vw" alt="${name}" loading="lazy" decoding="async" class="h-full w-full object-contain p-2 mix-blend-multiply sm:p-5">
+        <button aria-label="Add ${name} to bag" class="absolute bottom-0 right-0 flex h-11 w-11 items-center justify-center bg-white text-black transition-all duration-400 ease-luxe hover:bg-black hover:text-white lg:translate-y-full lg:opacity-0 lg:group-hover:translate-y-0 lg:group-hover:opacity-100"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4" aria-hidden="true"><path d="M5 12h14"></path><path d="M12 5v14"></path></svg></button>
+      </div>
+      <div class="px-4 pb-7 pt-2">
+        <p class="text-center uppercase leading-relaxed tracking-[0.12em] text-black text-[13px]">${name}</p>
+        <p class="mt-2.5 text-center text-[13px]"><span class="text-neutral-500">${price}</span></p>
+      </div>
+    </a>`;
+  };
+
+  const setupShopCatalog = () => {
+    if (window.location.pathname !== "/shop") return;
+    const grid = document.querySelector("main > .grid");
+    if (!grid || grid.dataset.jpCatalogBound) return;
+    grid.dataset.jpCatalogBound = "true";
+    const { type: activeType, transitions } = shopCategoryState();
+    grid.classList.toggle("jp-transitions-grid", transitions);
+    renderShopSubnav(activeType, transitions);
+    loadIndex()
+      .then((data) => {
+        const allProducts = Array.isArray(data.products) ? data.products : [];
+        const products = transitions ? allProducts.filter(productHasTransitions) : allProducts;
+        if (!products.length) throw new Error("Catalog is empty");
+        const count = Array.from(document.querySelectorAll(".sticky p")).find((item) =>
+          /products?$/i.test(item.textContent.trim()),
+        );
+        if (count) count.textContent = `${products.length} products`;
+        grid.innerHTML = products.map(productCardMarkup).join("");
+        setupProductActions();
+        grid.dispatchEvent(new Event("jp-catalog-rendered"));
+      })
+      .catch((error) => {
+        console.error(error);
+        showToast("The product catalog could not be loaded. Please refresh.");
+      });
+  };
+
   const setupGridControls = () => {
     const grid = document.querySelector("main > .grid");
     if (!grid || grid.dataset.jpBound) return;
@@ -845,21 +1552,29 @@
     document.querySelector('button[aria-label="Three per row"]')?.addEventListener("click", () => setMode("three"));
     document.querySelector('button[aria-label="Five per row"]')?.addEventListener("click", () => setMode("five"));
     document.querySelector('button[aria-label="List"]')?.addEventListener("click", () => setMode("list"));
-    const filterButton = Array.from(document.querySelectorAll("button")).find((button) => button.textContent.trim().toLowerCase() === "filter");
+    const filterButton = Array.from(document.querySelectorAll("button")).find((button) =>
+      button.textContent.trim().toLowerCase().startsWith("filter"),
+    );
     if (!filterButton) return;
     const toolbar = filterButton.parentElement?.parentElement;
     if (!toolbar) return;
-    toolbar.style.position = "relative";
     const panel = document.createElement("div");
     panel.className = "jp-filter-panel";
     panel.hidden = true;
     panel.innerHTML = '<input type="search" placeholder="Filter visible products" aria-label="Filter visible products">';
     toolbar.appendChild(panel);
     const input = panel.querySelector("input");
+    const applyFilter = () => {
+      const query = normalize(input.value);
+      grid.querySelectorAll(":scope > a").forEach((card) => {
+        card.hidden = Boolean(query) && !normalize(card.textContent).includes(query);
+      });
+    };
     filterButton.type = "button";
     filterButton.setAttribute("aria-expanded", "false");
     filterButton.addEventListener("click", () => { panel.hidden = !panel.hidden; filterButton.setAttribute("aria-expanded", String(!panel.hidden)); if (!panel.hidden) input.focus(); });
-    input.addEventListener("input", () => { const query = normalize(input.value); grid.querySelectorAll(":scope > a").forEach((card) => { card.hidden = query && !normalize(card.textContent).includes(query); }); });
+    input.addEventListener("input", applyFilter);
+    grid.addEventListener("jp-catalog-rendered", applyFilter);
   };
 
   const setupComboboxes = () => {
@@ -890,7 +1605,7 @@
     document.querySelectorAll("button").forEach((button) => {
       if (button.dataset.jpBound || !button.textContent.trim() || button.getAttribute("aria-label")) return;
       const answer = button.nextElementSibling;
-      if (!answer || !answer.textContent.trim()) return;
+      if (!answer || answer.tagName !== "DIV" || !answer.querySelector(":scope > p") || !answer.textContent.trim()) return;
       button.dataset.jpBound = "true";
       button.type = "button";
       answer.hidden = true;
@@ -929,10 +1644,16 @@
   };
 
   setupProductActions();
+  setupCartPage();
   setupCarousels();
+  setupBestSellerTabs();
+  setupEditorialCarousels();
   setupHeroControls();
   setupProductGallery();
   setupLensCompare();
+  setupCategoryLabels();
+  setupCategoryMenus();
+  setupShopCatalog();
   setupGridControls();
   setupComboboxes();
   setupFaq();
