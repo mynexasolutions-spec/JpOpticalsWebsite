@@ -1,0 +1,721 @@
+.jp-lock {
+  overflow: hidden;
+}
+
+body.jp-lock .asw-container {
+  display: none !important;
+}
+
+.jp-overlay[hidden] {
+  display: none !important;
+}
+
+.jp-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 5000;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 44px 22px;
+  overflow-y: auto;
+  background: rgba(10, 10, 10, 0.62);
+  font-family: var(--font-nav), var(--font-work-sans), sans-serif;
+  color: #111;
+  -webkit-font-smoothing: antialiased;
+}
+
+.jp-account-overlay {
+  align-items: center;
+  padding: 32px 20px;
+}
+
+.jp-modal {
+  position: relative;
+  width: 100%;
+  max-width: 560px;
+  background: #fff;
+  box-shadow: 0 32px 100px rgba(0, 0, 0, 0.34);
+  animation: jp-modal-in 180ms ease-out both;
+}
+
+@keyframes jp-modal-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.jp-modal-head {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 92px;
+  padding: 26px 72px;
+  border-bottom: 1px solid #e9e7e4;
+}
+
+.jp-modal-title {
+  margin: 0;
+  font-family: var(--font-display), Georgia, serif;
+  font-size: 19px;
+  font-weight: 400;
+  line-height: 1;
+  letter-spacing: 0.26em;
+  text-transform: uppercase;
+  text-indent: 0.26em;
+}
+
+.jp-close {
+  position: absolute;
+  top: 18px;
+  right: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #111;
+  cursor: pointer;
+  transition: opacity 200ms ease;
+}
+
+.jp-close:hover {
+  opacity: 0.55;
+}
+
+.jp-close svg {
+  width: 20px;
+  height: 20px;
+}
+
+.jp-tabs {
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+  gap: 42px;
+  min-height: 86px;
+  padding: 0 24px;
+  border-bottom: 1px solid #e9e7e4;
+}
+
+.jp-tab {
+  position: relative;
+  padding: 28px 2px 24px;
+  border: 0;
+  background: transparent;
+  color: #9a9a9a;
+  font-family: inherit;
+  font-size: 12px;
+  line-height: 1;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: color 200ms ease;
+}
+
+.jp-tab:hover {
+  color: #555;
+}
+
+.jp-tab::after {
+  content: "";
+  position: absolute;
+  bottom: 16px;
+  left: 50%;
+  width: 100%;
+  height: 1px;
+  background: currentColor;
+  transform: translateX(-50%) scaleX(0);
+  transition: transform 220ms ease;
+}
+
+.jp-tab.is-active {
+  color: #111;
+}
+
+.jp-tab.is-active::after {
+  transform: translateX(-50%) scaleX(1);
+}
+
+.jp-modal-body {
+  padding: 34px 60px 42px;
+}
+
+.jp-panel[hidden] {
+  display: none !important;
+}
+
+.jp-field {
+  display: block;
+  margin-bottom: 18px;
+}
+
+.jp-field-label {
+  display: block;
+  margin-bottom: 9px;
+  color: #6f6f6f;
+  font-size: 10px;
+  font-weight: 500;
+  line-height: 1;
+  letter-spacing: 0.17em;
+  text-transform: uppercase;
+}
+
+.jp-input-wrap {
+  position: relative;
+}
+
+.jp-input {
+  width: 100%;
+  height: 51px;
+  padding: 0 15px;
+  border: 1px solid #dedbd8;
+  border-radius: 0;
+  background: #fff;
+  color: #111;
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 1;
+  outline: none;
+  appearance: none;
+  transition: border-color 180ms ease, box-shadow 180ms ease;
+}
+
+.jp-input::placeholder {
+  color: #a0a0a0;
+}
+
+.jp-input:focus {
+  border-color: #111;
+  box-shadow: 0 0 0 1px #111;
+}
+
+.jp-input-wrap .jp-input {
+  padding-right: 48px;
+}
+
+.jp-eye {
+  position: absolute;
+  top: 0;
+  right: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 51px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #8f8f8f;
+  cursor: pointer;
+}
+
+.jp-eye:hover {
+  color: #111;
+}
+
+.jp-eye svg {
+  width: 18px;
+  height: 18px;
+}
+
+.jp-message {
+  min-height: 16px;
+  margin: 0 0 14px;
+  color: #8a6d3b;
+  font-size: 11px;
+  line-height: 1.45;
+  letter-spacing: 0.04em;
+}
+
+.jp-message.is-success {
+  color: #256b44;
+}
+
+.jp-message.is-error {
+  color: #a33a32;
+}
+
+.jp-submit {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 51px;
+  margin-top: 2px;
+  padding: 0 20px;
+  border: 0;
+  background: #000;
+  color: #fff;
+  font-family: inherit;
+  font-size: 12px;
+  line-height: 1;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background 200ms ease, opacity 200ms ease;
+}
+
+.jp-submit:hover {
+  background: #262626;
+}
+
+.jp-submit:disabled {
+  cursor: wait;
+  opacity: 0.7;
+}
+
+.jp-link {
+  display: block;
+  margin: 28px auto 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #7c7c7c;
+  font-family: inherit;
+  font-size: 11px;
+  line-height: 1.4;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  text-decoration: none;
+  cursor: pointer;
+  transition: color 200ms ease;
+}
+
+.jp-link:hover {
+  color: #111;
+}
+
+.jp-register-note {
+  margin: 2px 0 0;
+  color: #8b8b8b;
+  font-size: 10px;
+  line-height: 1.6;
+  letter-spacing: 0.04em;
+}
+
+.jp-search-overlay {
+  padding-top: clamp(62px, 10vh, 110px);
+}
+
+.jp-search-modal {
+  max-width: 760px;
+}
+
+.jp-search-head {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-height: 78px;
+  padding: 18px 62px 18px 26px;
+  border-bottom: 1px solid #e9e7e4;
+}
+
+.jp-search-head > svg {
+  flex: 0 0 auto;
+  width: 21px;
+  height: 21px;
+  color: #111;
+}
+
+.jp-search-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 40px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #111;
+  font-family: inherit;
+  font-size: 16px;
+  line-height: 1;
+  outline: none;
+  appearance: none;
+}
+
+.jp-search-input::placeholder {
+  color: #a1a1a1;
+}
+
+.jp-search-input::-webkit-search-cancel-button {
+  display: none;
+}
+
+.jp-search-body {
+  min-height: 220px;
+  max-height: min(68vh, 620px);
+  padding: 25px 26px 22px;
+  overflow-y: auto;
+}
+
+.jp-search-kicker {
+  margin: 0 0 14px;
+  color: #8a8a8a;
+  font-size: 10px;
+  line-height: 1;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.jp-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+  margin-bottom: 4px;
+}
+
+.jp-chip {
+  padding: 10px 15px;
+  border: 1px solid #e2dfdc;
+  background: #fff;
+  color: #333;
+  font-family: inherit;
+  font-size: 11px;
+  line-height: 1;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  transition: border-color 180ms ease, background 180ms ease;
+}
+
+.jp-chip:hover {
+  border-color: #111;
+  background: #faf9f7;
+}
+
+.jp-search-results {
+  display: flex;
+  flex-direction: column;
+}
+
+.jp-search-result {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 8px;
+  border-bottom: 1px solid #efedeb;
+  color: inherit;
+  text-decoration: none;
+  transition: background 160ms ease;
+}
+
+.jp-search-result:last-child {
+  border-bottom: 0;
+}
+
+.jp-search-result:hover,
+.jp-search-result:focus-visible {
+  background: #f8f7f5;
+  outline: none;
+}
+
+.jp-search-thumb {
+  display: block;
+  flex: 0 0 auto;
+  width: 58px;
+  height: 52px;
+  object-fit: contain;
+  background: #f4f3f1;
+}
+
+.jp-search-copy {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.jp-search-name {
+  display: block;
+  overflow: hidden;
+  color: #111;
+  font-size: 13px;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.jp-search-meta {
+  display: block;
+  margin-top: 3px;
+  overflow: hidden;
+  color: #999;
+  font-size: 9.5px;
+  line-height: 1.3;
+  letter-spacing: 0.13em;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.jp-search-price {
+  flex: 0 0 auto;
+  color: #222;
+  font-size: 12px;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.jp-search-empty {
+  margin: 28px 0 10px;
+  color: #777;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.jp-search-foot {
+  padding: 13px 26px;
+  border-top: 1px solid #e9e7e4;
+  color: #a0a0a0;
+  font-size: 9px;
+  line-height: 1;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.jp-menu-overlay {
+  align-items: stretch;
+  justify-content: flex-start;
+  padding: 0;
+  background: rgba(10, 10, 10, 0.55);
+}
+
+.jp-menu-panel {
+  display: flex;
+  flex-direction: column;
+  width: min(86vw, 390px);
+  height: 100vh;
+  height: 100dvh;
+  padding: 20px 24px 30px;
+  overflow-y: auto;
+  background: #fff;
+  box-shadow: 30px 0 90px rgba(0, 0, 0, 0.3);
+  animation: jp-menu-in 220ms ease-out both;
+}
+
+@keyframes jp-menu-in {
+  from {
+    opacity: 0.5;
+    transform: translateX(-26px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.jp-menu-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 48px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #e9e7e4;
+}
+
+.jp-menu-head .jp-close {
+  position: static;
+}
+
+.jp-menu-brand {
+  font-family: var(--font-display), Georgia, serif;
+  font-size: 22px;
+  line-height: 1;
+  letter-spacing: 0.24em;
+  text-indent: 0.24em;
+}
+
+.jp-menu-nav {
+  display: flex;
+  flex-direction: column;
+  padding: 8px 0 0;
+}
+
+.jp-menu-link {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 19px 2px;
+  border-bottom: 1px solid #efedeb;
+  color: #111;
+  font-size: 14px;
+  line-height: 1;
+  letter-spacing: 0.15em;
+  text-decoration: none;
+  text-transform: uppercase;
+  transition: opacity 180ms ease;
+}
+
+.jp-menu-link::after {
+  content: "\2192";
+  color: #b0aeab;
+  font-family: Georgia, serif;
+  font-size: 16px;
+  letter-spacing: 0;
+  transition: transform 180ms ease, color 180ms ease;
+}
+
+.jp-menu-link:hover {
+  opacity: 0.65;
+}
+
+.jp-menu-link:hover::after {
+  color: #111;
+  transform: translateX(3px);
+}
+
+.jp-menu-foot {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: auto;
+  padding-top: 30px;
+}
+
+.jp-menu-account {
+  align-self: flex-start;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #7c7c7c;
+  font-family: inherit;
+  font-size: 10px;
+  line-height: 1.4;
+  letter-spacing: 0.17em;
+  text-align: left;
+  text-decoration: none;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: color 180ms ease;
+}
+
+.jp-menu-account:hover {
+  color: #111;
+}
+
+.jp-nav-relocated {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  z-index: 1;
+  height: 100%;
+  margin: 0;
+  gap: clamp(32px, 3.4vw, 56px);
+  transform: translateX(-50%);
+}
+
+button.jp-account-button {
+  display: inline-flex;
+}
+
+.jp-about-hero-media {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.jp-about-hero-media img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: 68% center;
+}
+
+.jp-about-hero-scrim {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(90deg, rgba(8, 8, 8, 0.62) 0%, rgba(8, 8, 8, 0.18) 48%, rgba(8, 8, 8, 0.42) 100%),
+    linear-gradient(180deg, rgba(8, 8, 8, 0.22) 0%, rgba(8, 8, 8, 0.12) 45%, rgba(8, 8, 8, 0.55) 100%);
+}
+
+@media (max-width: 1023px) {
+  .jp-nav-relocated {
+    display: none !important;
+  }
+}
+
+@media (max-width: 767px) {
+  .jp-about-hero-media img {
+    object-position: 62% center;
+  }
+
+  .jp-about-hero-scrim {
+    background: linear-gradient(180deg, rgba(8, 8, 8, 0.52) 0%, rgba(8, 8, 8, 0.28) 40%, rgba(8, 8, 8, 0.68) 100%);
+  }
+}
+
+@media (max-width: 640px) {
+  .jp-account-overlay {
+    align-items: flex-start;
+    padding: 16px;
+  }
+
+  .jp-modal {
+    max-width: none;
+  }
+
+  .jp-account-modal {
+    margin-top: clamp(18px, 7vh, 64px);
+  }
+
+  .jp-modal-head {
+    min-height: 78px;
+    padding: 22px 58px;
+  }
+
+  .jp-tabs {
+    gap: 28px;
+    min-height: 76px;
+  }
+
+  .jp-tab {
+    padding-top: 25px;
+    padding-bottom: 22px;
+  }
+
+  .jp-tab::after {
+    bottom: 14px;
+  }
+
+  .jp-modal-body {
+    padding: 28px 22px 32px;
+  }
+
+  .jp-search-overlay {
+    padding: 16px 12px;
+  }
+
+  .jp-search-head {
+    min-height: 68px;
+    padding: 14px 54px 14px 18px;
+    gap: 12px;
+  }
+
+  .jp-search-body {
+    max-height: 64vh;
+    padding: 20px 18px;
+  }
+
+  .jp-search-thumb {
+    width: 50px;
+    height: 48px;
+  }
+
+  .jp-search-price {
+    display: none;
+  }
+
+  .jp-search-foot {
+    padding: 12px 18px;
+  }
+}
