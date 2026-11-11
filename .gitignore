@@ -1,6 +1,44 @@
-node_modules
-.next
-out
+# Dependencies
+/node_modules/
+
+# Next.js build output
+/.next/
+/out/
+/dist/
+/coverage/
+*.tsbuildinfo
+
+# Local mirror cache and logs
+.mirror-cache/
 *.log
-.env*.local
-.mirror-cache
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Local environment and secrets
+.env
+.env.*
+!.env.example
+
+# Editor and operating-system files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp
+*.swp
+
+# Generated mirror captures kept outside the deployable public/ directory
+/artsofoptics-com/
+/connect-facebook-net/
+/firebasestorage-googleapis-com/
+/website-widgets-pages-dev/
+/www-facebook-com/
+/www-google-com/
+/www-googletagmanager-com/
+/www-gstatic-com/
+/index.original.html
