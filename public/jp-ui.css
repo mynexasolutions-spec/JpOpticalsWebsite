@@ -2,6 +2,128 @@
   overflow: hidden;
 }
 
+html,
+body {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+[aria-roledescription="carousel"] {
+  touch-action: pan-y;
+}
+
+[aria-roledescription="carousel"] > .overflow-hidden {
+  overscroll-behavior-x: contain;
+}
+
+[aria-roledescription="carousel"] > .overflow-hidden > .flex {
+  transition: transform 320ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+[aria-roledescription="carousel"].jp-carousel-dragging > .overflow-hidden > .flex {
+  transition: none;
+  cursor: grabbing;
+}
+
+.jp-toast {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 6000;
+  max-width: min(360px, calc(100vw - 40px));
+  padding: 14px 18px;
+  background: #111;
+  color: #fff;
+  font-family: var(--font-nav), var(--font-work-sans), sans-serif;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  line-height: 1.45;
+  text-transform: uppercase;
+  box-shadow: 0 12px 32px rgb(0 0 0 / 22%);
+}
+
+.jp-grid-five {
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+}
+
+.jp-grid-list {
+  grid-template-columns: minmax(0, 1fr) !important;
+}
+
+.jp-grid-list > a {
+  display: grid;
+  grid-template-columns: minmax(120px, 220px) minmax(0, 1fr);
+  gap: 20px;
+  align-items: center;
+}
+
+.jp-filter-panel {
+  position: absolute;
+  right: 0;
+  top: 100%;
+  z-index: 5;
+  width: min(360px, 100vw);
+  padding: 18px;
+  border: 1px solid #e5e2df;
+  background: #fff;
+  box-shadow: 0 18px 45px rgb(0 0 0 / 12%);
+}
+
+.jp-filter-panel input {
+  width: 100%;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid #d7d3cf;
+  font: inherit;
+}
+
+.jp-combobox-options {
+  position: absolute;
+  z-index: 20;
+  left: 0;
+  right: 0;
+  margin-top: 4px;
+  overflow: hidden;
+  border: 1px solid #d7d3cf;
+  background: #fff;
+  box-shadow: 0 14px 32px rgb(0 0 0 / 12%);
+}
+
+.jp-combobox-options button {
+  display: block;
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 0;
+  background: #fff;
+  text-align: left;
+}
+
+.jp-combobox-options button:hover,
+.jp-combobox-options button:focus-visible {
+  background: #f4f2f0;
+}
+
+@media (min-width: 1024px) {
+  .jp-grid-five {
+    grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+  }
+}
+
+@media (max-width: 640px) {
+  .jp-toast {
+    right: 12px;
+    bottom: 12px;
+    left: 12px;
+    max-width: none;
+  }
+
+  .jp-grid-list > a {
+    grid-template-columns: 112px minmax(0, 1fr);
+    gap: 12px;
+  }
+}
+
 body.jp-lock .asw-container {
   display: none !important;
 }

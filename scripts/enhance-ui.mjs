@@ -33,6 +33,29 @@ for (const file of files) {
     .replace(/\s*<link[^>]+href="\/jp-ui\.css"[^>]*>/g, "")
     .replace(/\s*<script[^>]+src="\/jp-ui\.js"[^>]*><\/script>/g, "");
 
+  html = html.replace(
+    /\b(src|href|poster)="(media|site-assets)\//g,
+    '$1="/$2/',
+  );
+
+  const socialLinks = {
+    Facebook: "https://www.facebook.com/jp.shop",
+    X: "https://x.com/jp",
+    Instagram: "https://www.instagram.com/jp_shop/",
+    YouTube: "https://www.youtube.com/@jp",
+    TikTok: "https://www.tiktok.com/@jp",
+  };
+  html = html.replace(/<a\b([^>]*)>([\s\S]*?)<\/a>/gi, (match, attrs, content) => {
+    const label = attrs.match(/aria-label="([^"]+)"/i)?.[1];
+    if (label && socialLinks[label] && !/\bhref="/i.test(attrs)) {
+      return `<a href="${socialLinks[label]}"${attrs}>${content}</a>`;
+    }
+    if (/Powered by DevInsidercode/i.test(content) && !/\bhref="/i.test(attrs)) {
+      return `<a href="https://devinsidercode.com/"${attrs}>${content}</a>`;
+    }
+    return match;
+  });
+
   const headEnd = html.indexOf("</head>");
   if (headEnd === -1) {
     console.warn(`skipped (no </head>): ${file}`);

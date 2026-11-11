@@ -605,5 +605,339 @@
     }
   });
 
+  const showToast = (message) => {
+    let toast = document.querySelector(".jp-toast");
+    if (!toast) {
+      toast = document.createElement("div");
+      toast.className = "jp-toast";
+      toast.setAttribute("role", "status");
+      document.body.appendChild(toast);
+    }
+    toast.textContent = message;
+    toast.hidden = false;
+    window.clearTimeout(Number(toast.dataset.timeout || 0));
+    toast.dataset.timeout = String(
+      window.setTimeout(() => {
+        toast.hidden = true;
+      }, 2600),
+    );
+  };
+
+  const readCart = () => {
+    try {
+      const cart = JSON.parse(localStorage.getItem("jp_local_cart_v1") || "[]");
+      return Array.isArray(cart) ? cart : [];
+    } catch {
+      return [];
+    }
+  };
+
+  const writeCart = (cart) => {
+    try {
+      localStorage.setItem("jp_local_cart_v1", JSON.stringify(cart));
+    } catch {
+      return;
+    }
+  };
+
+  const updateCartBadge = () => {
+    const count = readCart().reduce((total, item) => total + item.quantity, 0);
+    document.querySelectorAll('a[aria-label="Cart"]').forEach((link) => {
+      let badge = link.querySelector(".jp-cart-count");
+      if (count === 0) {
+        badge?.remove();
+        return;
+      }
+      if (!badge) {
+        badge = document.createElement("span");
+        badge.className = "jp-cart-count";
+        link.appendChild(badge);
+      }
+      badge.textContent = String(count);
+    });
+  };
+
+  const setupProductActions = () => {
+    document.querySelectorAll('button[aria-label^="Add "][aria-label$=" to bag"]').forEach((button) => {
+      if (button.dataset.jpBound) return;
+      button.dataset.jpBound = "true";
+      button.type = "button";
+      button.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        const name = button.getAttribute("aria-label")?.replace(/^Add | to bag$/g, "") || "Item";
+        const link = button.closest("a[href]");
+        const cart = readCart();
+        const existing = cart.find((item) => item.name === name && item.url === link?.getAttribute("href"));
+        if (existing) existing.quantity += 1;
+        else cart.push({ name, url: link?.getAttribute("href") || "/shop", quantity: 1 });
+        writeCart(cart);
+        updateCartBadge();
+        showToast(`${name} added to your bag`);
+      });
+    });
+    updateCartBadge();
+  };
+
+  const setupCarousels = () => {
+    document.querySelectorAll('[role="region"][aria-roledescription="carousel"]').forEach((region) => {
+      if (region.dataset.jpBound) return;
+      const viewport = region.querySelector(":scope > .overflow-hidden");
+      const track = viewport?.firstElementChild;
+      const slides = track ? Array.from(track.children) : [];
+      if (!viewport || !track || !slides.length) return;
+      region.dataset.jpBound = "true";
+      region.tabIndex = 0;
+      let offset = 0;
+      let maxOffset = 0;
+      let slideWidth = 0;
+      let dragging = false;
+      let pointerId = null;
+      let startX = 0;
+      let startY = 0;
+      let startOffset = 0;
+      let suppressClick = false;
+
+      const measure = () => {
+        slideWidth = slides[0].getBoundingClientRect().width || viewport.clientWidth;
+        maxOffset = Math.max(0, track.scrollWidth - viewport.clientWidth);
+        offset = Math.min(offset, maxOffset);
+      };
+      const apply = (animate) => {
+        track.style.transition = animate ? "" : "none";
+        track.style.transform = `translate3d(${-offset}px, 0, 0)`;
+        if (!animate) requestAnimationFrame(() => { track.style.transition = ""; });
+        region.querySelectorAll('button').forEach((button) => {
+          const label = `${button.textContent} ${button.getAttribute("aria-label") || ""}`.toLowerCase();
+          if (label.includes("previous")) button.disabled = offset <= 1;
+          if (label.includes("next")) button.disabled = offset >= maxOffset - 1;
+        });
+      };
+      const move = (direction) => {
+        measure();
+        const visible = Math.max(1, Math.round(viewport.clientWidth / slideWidth));
+        offset = Math.max(0, Math.min(maxOffset, offset + direction * slideWidth * visible));
+        apply(true);
+      };
+      const finishPointer = () => {
+        if (pointerId !== null) {
+          try { viewport.releasePointerCapture(pointerId); } catch {}
+        }
+        pointerId = null;
+        if (dragging) {
+          const snap = Math.round(offset / slideWidth) * slideWidth;
+          offset = Math.max(0, Math.min(maxOffset, snap));
+          apply(true);
+          suppressClick = true;
+          window.setTimeout(() => { suppressClick = false; }, 0);
+        }
+        dragging = false;
+        region.classList.remove("jp-carousel-dragging");
+      };
+
+      region.querySelectorAll("button").forEach((button) => {
+        const label = `${button.textContent} ${button.getAttribute("aria-label") || ""}`.toLowerCase();
+        button.type = "button";
+        if (label.includes("previous")) button.addEventListener("click", () => move(-1));
+        if (label.includes("next")) button.addEventListener("click", () => move(1));
+      });
+      region.addEventListener("keydown", (event) => {
+        if (event.key === "ArrowLeft") { event.preventDefault(); move(-1); }
+        if (event.key === "ArrowRight") { event.preventDefault(); move(1); }
+      });
+      viewport.addEventListener("pointerdown", (event) => {
+        if (event.pointerType === "mouse" && event.button !== 0) return;
+        pointerId = event.pointerId;
+        startX = event.clientX;
+        startY = event.clientY;
+        startOffset = offset;
+        dragging = false;
+        viewport.setPointerCapture?.(pointerId);
+      });
+      viewport.addEventListener("pointermove", (event) => {
+        if (event.pointerId !== pointerId) return;
+        const dx = event.clientX - startX;
+        const dy = event.clientY - startY;
+        if (!dragging && Math.abs(dx) < 8) return;
+        if (!dragging && Math.abs(dy) > Math.abs(dx)) { finishPointer(); return; }
+        dragging = true;
+        region.classList.add("jp-carousel-dragging");
+        event.preventDefault();
+        offset = Math.max(0, Math.min(maxOffset, startOffset - dx));
+        apply(false);
+      });
+      viewport.addEventListener("pointerup", finishPointer);
+      viewport.addEventListener("pointercancel", finishPointer);
+      viewport.addEventListener("lostpointercapture", finishPointer);
+      viewport.addEventListener("click", (event) => {
+        if (suppressClick) { event.preventDefault(); event.stopPropagation(); }
+      }, true);
+      window.addEventListener("resize", () => { measure(); apply(false); }, { passive: true });
+      measure();
+      apply(false);
+    });
+  };
+
+  const setupHeroControls = () => {
+    const routes = { Cartier: "/collection/14", Dita: "/collection/4", Maybach: "/collection/10" };
+    document.querySelectorAll('button[aria-label^="Go to "]').forEach((button) => {
+      if (button.dataset.jpBound) return;
+      button.dataset.jpBound = "true";
+      button.type = "button";
+      button.addEventListener("click", () => {
+        const brand = button.getAttribute("aria-label")?.replace("Go to ", "");
+        if (brand && routes[brand]) window.location.href = routes[brand];
+      });
+    });
+  };
+
+  const setupProductGallery = () => {
+    document.querySelectorAll('button[aria-label^="Photo "]').forEach((button) => {
+      if (button.dataset.jpBound) return;
+      button.dataset.jpBound = "true";
+      button.type = "button";
+      button.addEventListener("click", () => {
+        const source = button.querySelector("img")?.getAttribute("src");
+        const candidates = Array.from(document.images).filter((image) => image.getAttribute("src") === source && image !== button.querySelector("img"));
+        const target = candidates.find((image) => image.className.includes("p-10") || image.className.includes("p-6"));
+        target?.scrollIntoView({ behavior: "smooth", block: "center" });
+        button.parentElement?.querySelectorAll('button[aria-label^="Photo "]').forEach((item) => item.classList.remove("ring-1", "ring-black"));
+        button.classList.add("ring-1", "ring-black");
+      });
+    });
+  };
+
+  const setupLensCompare = () => {
+    const handle = document.querySelector('button[aria-label="Drag to compare lenses"]');
+    const surface = handle?.closest("div.relative");
+    if (!handle || !surface || surface.dataset.jpBound) return;
+    surface.dataset.jpBound = "true";
+    surface.style.touchAction = "none";
+    const overlay = surface.querySelector("img[style]");
+    const divider = handle.parentElement;
+    if (!overlay || !divider) return;
+    const setValue = (clientX) => {
+      const rect = surface.getBoundingClientRect();
+      const value = Math.max(0, Math.min(100, ((clientX - rect.left) / rect.width) * 100));
+      overlay.style.clipPath = `inset(0 ${100 - value}% 0 0)`;
+      divider.style.left = `${value}%`;
+    };
+    let active = false;
+    surface.addEventListener("pointerdown", (event) => { active = true; surface.setPointerCapture?.(event.pointerId); setValue(event.clientX); });
+    surface.addEventListener("pointermove", (event) => { if (active) { event.preventDefault(); setValue(event.clientX); } });
+    ["pointerup", "pointercancel", "lostpointercapture"].forEach((name) => surface.addEventListener(name, () => { active = false; }));
+    handle.addEventListener("keydown", (event) => {
+      const current = parseFloat(divider.style.left || "50");
+      if (event.key === "ArrowLeft") { event.preventDefault(); setValue(surface.getBoundingClientRect().left + surface.getBoundingClientRect().width * ((current - 4) / 100)); }
+      if (event.key === "ArrowRight") { event.preventDefault(); setValue(surface.getBoundingClientRect().left + surface.getBoundingClientRect().width * ((current + 4) / 100)); }
+    });
+  };
+
+  const setupGridControls = () => {
+    const grid = document.querySelector("main > .grid");
+    if (!grid || grid.dataset.jpBound) return;
+    grid.dataset.jpBound = "true";
+    const setMode = (mode) => {
+      grid.classList.toggle("jp-grid-five", mode === "five");
+      grid.classList.toggle("jp-grid-list", mode === "list");
+      grid.querySelectorAll("a").forEach((link) => link.classList.toggle("jp-list-card", mode === "list"));
+    };
+    document.querySelector('button[aria-label="Three per row"]')?.addEventListener("click", () => setMode("three"));
+    document.querySelector('button[aria-label="Five per row"]')?.addEventListener("click", () => setMode("five"));
+    document.querySelector('button[aria-label="List"]')?.addEventListener("click", () => setMode("list"));
+    const filterButton = Array.from(document.querySelectorAll("button")).find((button) => button.textContent.trim().toLowerCase() === "filter");
+    if (!filterButton) return;
+    const toolbar = filterButton.parentElement?.parentElement;
+    if (!toolbar) return;
+    toolbar.style.position = "relative";
+    const panel = document.createElement("div");
+    panel.className = "jp-filter-panel";
+    panel.hidden = true;
+    panel.innerHTML = '<input type="search" placeholder="Filter visible products" aria-label="Filter visible products">';
+    toolbar.appendChild(panel);
+    const input = panel.querySelector("input");
+    filterButton.type = "button";
+    filterButton.setAttribute("aria-expanded", "false");
+    filterButton.addEventListener("click", () => { panel.hidden = !panel.hidden; filterButton.setAttribute("aria-expanded", String(!panel.hidden)); if (!panel.hidden) input.focus(); });
+    input.addEventListener("input", () => { const query = normalize(input.value); grid.querySelectorAll(":scope > a").forEach((card) => { card.hidden = query && !normalize(card.textContent).includes(query); }); });
+  };
+
+  const setupComboboxes = () => {
+    document.querySelectorAll('button[role="combobox"]').forEach((button) => {
+      if (button.dataset.jpBound) return;
+      const select = button.parentElement?.querySelector("select");
+      if (!select) return;
+      button.dataset.jpBound = "true";
+      button.type = "button";
+      const parent = button.parentElement;
+      parent.style.position = "relative";
+      const options = document.createElement("div");
+      options.className = "jp-combobox-options";
+      options.hidden = true;
+      Array.from(select.options).forEach((option) => {
+        const item = document.createElement("button");
+        item.type = "button";
+        item.textContent = option.textContent;
+        item.addEventListener("click", () => { select.value = option.value; button.querySelector("span").textContent = option.textContent; options.hidden = true; button.setAttribute("aria-expanded", "false"); });
+        options.appendChild(item);
+      });
+      parent.appendChild(options);
+      button.addEventListener("click", () => { options.hidden = !options.hidden; button.setAttribute("aria-expanded", String(!options.hidden)); });
+    });
+  };
+
+  const setupFaq = () => {
+    document.querySelectorAll("button").forEach((button) => {
+      if (button.dataset.jpBound || !button.textContent.trim() || button.getAttribute("aria-label")) return;
+      const answer = button.nextElementSibling;
+      if (!answer || !answer.textContent.trim()) return;
+      button.dataset.jpBound = "true";
+      button.type = "button";
+      answer.hidden = true;
+      button.setAttribute("aria-expanded", "false");
+      button.addEventListener("click", () => { answer.hidden = !answer.hidden; button.setAttribute("aria-expanded", String(!answer.hidden)); });
+    });
+  };
+
+  const setupForms = () => {
+    document.querySelectorAll("form").forEach((form) => {
+      if (form.dataset.jpForm || form.dataset.jpSearchForm || form.dataset.jpBound) return;
+      form.dataset.jpBound = "true";
+      form.addEventListener("submit", (event) => {
+        if (form.querySelector("input[name=first_name], textarea[name=message]")) {
+          event.preventDefault();
+          showToast("Thanks — your message was recorded in this preview.");
+          form.reset();
+          return;
+        }
+        if (form.querySelector('input[type="email"]')) {
+          event.preventDefault();
+          showToast("You are on the list. Welcome.");
+          form.reset();
+        }
+      });
+    });
+  };
+
+  const setupCallButton = () => {
+    const button = Array.from(document.querySelectorAll("button")).find((item) => item.querySelector('svg path[d^="M22 16.92"]'));
+    if (!button || button.dataset.jpBound) return;
+    button.dataset.jpBound = "true";
+    button.type = "button";
+    button.setAttribute("aria-label", "Call JP");
+    button.addEventListener("click", () => { window.location.href = "tel:+13475445139"; });
+  };
+
+  setupProductActions();
+  setupCarousels();
+  setupHeroControls();
+  setupProductGallery();
+  setupLensCompare();
+  setupGridControls();
+  setupComboboxes();
+  setupFaq();
+  setupForms();
+  setupCallButton();
+
   document.documentElement.classList.add("jp-ui-ready");
 })();
