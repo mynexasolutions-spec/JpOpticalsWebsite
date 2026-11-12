@@ -938,6 +938,20 @@
     if (!section || buttons.length !== 2 || !region || !track || !allProducts || !sunglassesButton || !opticalButton) return;
 
     const sunglassesSlides = Array.from(track.children);
+    const opticalSlidesPromise = loadIndex().then((data) => {
+      const slideClass = sunglassesSlides[0]?.className || "min-w-0 shrink-0 grow-0 basis-1/2 pl-4 md:basis-1/3 lg:basis-1/4 lg:pl-8";
+      return (data.products || [])
+        .filter((product) => product.type === "Optical")
+        .slice(0, sunglassesSlides.length)
+        .map((product) => {
+          const slide = document.createElement("div");
+          slide.setAttribute("role", "group");
+          slide.setAttribute("aria-roledescription", "slide");
+          slide.className = slideClass;
+          slide.innerHTML = productCardMarkup(product);
+          return slide;
+        });
+    });
 
     const setActive = (activeButton) => {
       buttons.forEach((button) => {
@@ -973,12 +987,14 @@
       );
     });
     opticalButton.addEventListener("click", () => {
-      showCategory(
-        opticalButton,
-        sunglassesSlides,
-        "All optical",
-        "/shop?type_frame=Optical&page=1",
-      );
+      opticalSlidesPromise.then((opticalSlides) => {
+        showCategory(
+          opticalButton,
+          opticalSlides,
+          "All optical",
+          "/shop?type_frame=Optical&page=1",
+        );
+      });
     });
   };
 
